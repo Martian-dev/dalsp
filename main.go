@@ -47,8 +47,6 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 
 		writeResponse(writer, msg)
 
-		logger.Printf("Sent the reply")
-
 	case "textDocument/didOpen":
 		var request lsp.DidOpenTextDocumentNotification
 		if err := json.Unmarshal(contents, &request); err != nil {
@@ -68,6 +66,7 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 		for _, change := range request.Params.ContentChanges {
 			state.UpdateDocument(request.Params.TextDocument.URI, change.Text)
 		}
+
 	case "textDocument/hover":
 		var request lsp.HoverRequest
 		if err := json.Unmarshal(contents, &request); err != nil {
@@ -78,12 +77,26 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 		response := state.Hover(request.ID, request.Params.TextDocument.URI, request.Params.Position)
 
 		writeResponse(writer, response)
+
+	case "textDocument/definition":
+		var request lsp.DefinitionRequest
+		if err := json.Unmarshal(contents, &request); err != nil {
+			logger.Printf("textDocument/definition: %s", err)
+			return
+		}
+
+		response := state.Definition(request.ID, request.Params.TextDocument.URI, request.Params.Position)
+
+		writeResponse(writer, response)
 	}
 }
 
 func writeResponse(writer io.Writer, msg any) {
 	reply := rpc.EncodeMessage(msg)
-	writer.Write([]byte(reply))
+	_, err := writer.Write([]byte(reply))
+	if err != nil {
+		panic("not able to write it bro")
+	}
 }
 
 func getLogger(filename string) *log.Logger {
